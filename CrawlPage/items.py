@@ -8,7 +8,10 @@
 import scrapy
 
 
-class CrawlpageItem(scrapy.Item):
+class PatentItem(scrapy.Item):
+    KEYS = ['dbcode', 'dbname', 'filename']
     # define the fields for your item here like:
-    # name = scrapy.Field()
-    pass
+    title = scrapy.Field()
+    dbcode = scrapy.Field()
+    dbname = scrapy.Field()
+    filename = scrapy.Field()
