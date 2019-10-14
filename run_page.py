@@ -21,6 +21,4 @@ def run():
 
 
 if __name__ == '__main__':
-    # run()
-    load_dotenv()
-    print(os.getenv('SCRAPY_ENV', 'development'))
+    run()

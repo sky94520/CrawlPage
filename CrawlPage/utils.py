@@ -3,55 +3,16 @@ import requests
 from datetime import datetime, timedelta
 
 
-def get_cookie(code="*", proxies=None, **kwargs):
-    """
-    根据条件给知网发送post请求来获取对应的cookie
-    :param code: 条件，知网会根据条件来进行搜索
-    :param proxies: 代理 proxies = {'http': 'host:port', 'https': 'host:port'}
-    :return: cookie 字符串类型，主要用于赋值到header中的Cookie键
-    headers = {'Cookie': cookie}
-    """
-    params = {
-        "action": "",
-        "NaviCode": code,
-        "ua": "1.25",
-        "isinEn": "0",
-        "PageName": "ASP.brief_result_aspx",
-        "DbPrefix": "SCPD",
-        "DbCatalog": "中国专利数据库",
-        "ConfigFile": "SCPD.xml",
-        "db_opt": "SCOD",
-        "db_value": "中国专利数据库",
-        "his": "0",
-        "__": _get_now_gmt_time()
-    }
-    params.update(**kwargs)
-    url = 'http://kns.cnki.net/kns/request/SearchHandler.ashx'
-    try:
-        response = requests.post(url, params=params, proxies=proxies)
-        cookies = requests.utils.dict_from_cookiejar(response.cookies)
-
-        cookie_str = ""
-        for key in cookies:
-            value = cookies[key]
-            text = "%s=%s;" % (key, value)
-            cookie_str += text
-
-        return cookie_str
-    except Exception as e:
-        print(e)
-    return None
+def str2date(date_string):
+    if date_string is None or len(date_string) == 0:
+        return None
+    date = datetime.strptime(date_string, '%Y-%m-%d')
+    return date
 
 
-def _get_now_gmt_time():
-    """
-    获取当前的中国标准时间，主要用于赋值给form data
-    :return: 当前的时间字符串
-    """
-    GMT_FORMAT = '%a %b %d %Y %H:%M:%S GMT+0800'
-    now = datetime.utcnow() + timedelta(hours=8)
-    text = '%s (中国标准时间)' % now.strftime(GMT_FORMAT)
-    return text
+def date2str(date):
+    date_string = date.strftime('%Y-%m-%d')
+    return date_string
 
 
 class MongoDB(object):

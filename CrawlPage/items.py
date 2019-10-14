@@ -11,7 +11,9 @@ import scrapy
 class PatentItem(scrapy.Item):
     KEYS = ['dbcode', 'dbname', 'filename']
     # define the fields for your item here like:
-    title = scrapy.Field()
-    dbcode = scrapy.Field()
-    dbname = scrapy.Field()
-    filename = scrapy.Field()
+    # title = scrapy.Field()
+    # dbcode = scrapy.Field()
+    # dbname = scrapy.Field()
+    # filename = scrapy.Field()
+    array = scrapy.Field()
+    response = scrapy.Field()
