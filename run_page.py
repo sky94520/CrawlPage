@@ -12,7 +12,7 @@ def start_spider():
     # 合并配置
     process = CrawlerProcess(settings)
     process.crawl(spider_name)
-    process.start(stop_after_crawl=False)
+    process.start()
 
 
 if __name__ == '__main__':

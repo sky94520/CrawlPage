@@ -61,7 +61,9 @@ class PageSpider(scrapy.Spider):
         except IdentifyingCodeError as e:
             self.logger.error(e)
             self._cookie_dirty = True
-            yield response.request; return
+            yield self._create_request(self.redis.cur_page)
+            return
+            # yield response.request; return
         # 返回None表示此类爬取完成 尝试开启新的请求并爬取
         if result is None:
             request = self._pop_new_request()
