@@ -9,12 +9,18 @@ import os
 import json
 
 
+def get_path(spider, path_name):
+    basedir = spider.settings.get('BASEDIR')
+    main_cls_number = re.sub('/', '-', spider.main_cls_number)
+    path = os.path.join(basedir, 'files', path_name, main_cls_number)
+
+    return path
+
+
 class JsonPipeline(object):
 
     def process_item(self, item, spider):
-        basedir = spider.settings.get('BASEDIR')
-        main_cls_number = re.sub('/', '-', spider.main_cls_number)
-        path = os.path.join(basedir, 'files', 'page_links', main_cls_number)
+        path = get_path(spider, 'page_links')
         response = item['response']
         index = response.meta['index']
 
@@ -31,9 +37,7 @@ class SavePagePipeline(object):
 
     def process_item(self, item, spider):
         # 文件存储路径
-        basedir = spider.settings.get('BASEDIR')
-        main_cls_number = re.sub('/', '-', spider.main_cls_number)
-        path = os.path.join(basedir, 'files', 'page', main_cls_number)
+        path = get_path(spider, 'page')
         response = item['response']
         index = response.meta['index']
 
