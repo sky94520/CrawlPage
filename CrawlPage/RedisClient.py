@@ -71,7 +71,7 @@ class RedisClient(object):
         return self.redis.hget('process', 'cls_number')
 
     @main_cls_number.setter
-    def set_main_cls_number(self, cls_number):
+    def main_cls_number(self, cls_number):
         self.cls_number = cls_number
         self.redis.hset('process', 'cls_number', cls_number)
 

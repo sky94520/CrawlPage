@@ -45,7 +45,8 @@ class PageSpider(scrapy.Spider):
             request = self._pop_new_request()
         # 判断具体的个数
         self.logger.info('开始爬取%s' % self.main_cls_number)
-        yield request
+        if request:
+            yield request
 
     def parse(self, response):
         """
@@ -82,7 +83,9 @@ class PageSpider(scrapy.Spider):
             yield self._create_request(self.redis.cur_page)
         # 尝试创建新的请求
         else:
-            yield self._pop_new_request()
+            request = self._pop_new_request()
+            if request:
+                yield request
 
     def parse_page(self, response):
         """
@@ -172,7 +175,7 @@ class PageSpider(scrapy.Spider):
         self.redis.del_process()
         main_cls_number = self.redis.pop_main_cls_number()
         if main_cls_number:
-            self.redis.set_main_cls_number(main_cls_number)
+            self.redis.main_cls_number = main_cls_number
             self.redis.initialize()
             return self._create_request(self.redis.cur_page)
 
