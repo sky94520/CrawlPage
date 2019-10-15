@@ -196,14 +196,15 @@ class PageSpider(scrapy.Spider):
             # 超出年份, 切换到下一年
             if date.year != old_year:
                 # 最低年限，超出这个年限则不再进行爬取
-                BOUND_YEAR = os.getenv('BOUND_YEAR', 1989)
+                BOUND_YEAR = int(os.getenv('BOUND_YEAR', 1989))
                 if BOUND_YEAR > old_year - 1:
                     is_next = False
                 else:
                     date = datetime(old_year - 1, 1, 1)
                     self.redis.set_days(366)
             self.redis.set_date(date)
-            self.logger.info('爬取从%s开始' % date2str(self.redis.date))
+            if is_next:
+                self.logger.info('爬取从%s开始' % date2str(self.redis.date))
         # 是否继续爬取页面
         return is_next
 

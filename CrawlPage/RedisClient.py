@@ -32,6 +32,7 @@ class RedisClient(object):
         self.redis.hset('process', 'days', days)
 
     def set_date(self, date):
+        self.date = date
         dateStr = date2str(date)
         self.redis.hset('process', 'date', dateStr)
 
