@@ -13,6 +13,7 @@ from CrawlPage.utils import date2str
 
 class IdentifyingCodeError(Exception):
     """出现验证码所引发的异常"""
+
     def __init__(self, text):
         self.text = text
 
@@ -23,18 +24,28 @@ class IdentifyingCodeError(Exception):
 class PageSpider(scrapy.Spider):
     name = 'page'
 
-    def __init__(self, redis, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # main_cls_number H04N1/62
-        self.redis = redis
+        # main_cls_number
+        SCRAPY_ENV = os.getenv('SCRAPY_ENV', 'development')
+        REDIS_CONFIG['db'] = 4 if SCRAPY_ENV == 'development' else 3
+        self.redis = RedisClient(**REDIS_CONFIG)
         # 数字正则提取
         self.pattern = r'\d+(\,\d+)*'
         # cookie
-        self.cookie_dirty, self.cookie = True, None
+        self._cookie_dirty, self._cookie = True, None
         self.equal_count = 0
 
     def start_requests(self):
+        # 存在断点
+        if self.redis.hexists('cls_number'):
+            main_cls_number = self.redis.main_cls_number
+        else:
+            main_cls_number = self.redis.pop_main_cls_number()
+            self.redis.set_main_cls_number(main_cls_number)
+            self.redis.initialize()
         # 判断具体的个数
+        self.logger.info('开始爬取%s' % main_cls_number)
         yield self.create_request()
 
     def parse(self, response):
@@ -46,58 +57,34 @@ class PageSpider(scrapy.Spider):
         try:
             self.logger.info('正在爬取%s: 第%d页' % (self.redis.main_cls_number, self.redis.cur_page))
             result = self.parse_page(response)
+            # 返回None表示此类爬取完成 尝试开启新的请求并爬取
             if result is None:
+                request = self._pop_new_request()
+                if request:
+                    yield request
                 return
             # 超过阈值 缩小范围
             total_count = result['total_count']
-            if total_count > 6000:
-                if self.redis.total_count == -1:
-                    self.redis.set_total_count('total_count')
-                if self.redis.is_using_date():
-                    self.redis.set_days(self.redis.days // 2)
-                else:
-                    self.redis.set_days(self.redis.days)
-                self.logger.warning('页面数据%d个，尝试改为%d天爬取' % (total_count, self.redis.days))
-                self.redis.set_date(self.redis.date)
-                self.cookie_dirty = True
-                yield self.create_request(self.redis.cur_page)
+            request = self._beyond_bounds(total_count)
+            if request:
+                yield request
                 return
             # 返回items
             item = result['item']
             yield item
             # 这一页爬取完成
-            old_count = self.redis.cur_count
-            # 更新值
-            self.redis.inc_index()
-            self.redis.add_cur_count(count=len(item['array']))
-            self.logger.info('爬取%s: 第%d页%d条，当前共%d条' %
-                             (self.redis.main_cls_number, self.redis.cur_page, len(item['array']), self.redis.cur_count))
-            self.redis.inc_page()
-            # 使用到了天数且爬取完成
-            is_next = self.redis.cur_count < result['total_count']
-            if not is_next and self.redis.is_using_date():
-                is_next = True
-                self.cookie_dirty = True
-                self.redis.set_cur_page(1)
-                self.redis.set_cur_count(0)
-                # 年份处理
-                old_year = self.redis.date.year
-                self.redis.date = self.redis.date + timedelta(days=self.redis.days)
-                # 超出年份, 切换到下一年
-                if self.redis.date.year != old_year:
-                    self.redis.date = datetime(old_year-1, 1, 1)
-                    self.redis.set_days(366)
-                self.redis.set_date(self.redis.date)
-                self.logger.info('爬取从%s开始' % date2str(self.redis.date))
-            # 页面爬取完成但未发现数据，计数
-            self.equal_count = 0 if old_count != self.redis.cur_count else self.equal_count + 1
-            # is_next 表示继续爬取页面 equal_count 表示连续数次以上item个数未发生变化
-            if is_next and self.equal_count < 4:
+            is_next = self._crawl_page_done(total_count, item)
+            # 存在下一页 或下一个年份
+            if is_next:
                 yield self.create_request(self.redis.cur_page)
+            else:
+                request = self._pop_new_request()
+                if request:
+                    yield request
         # 出现验证码 重新请求
         except Exception as e:
             self.logger.error(e)
-            self.cookie_dirty = True
+            self._cookie_dirty = True
             yield response.request
 
     def parse_page(self, response):
@@ -128,7 +115,7 @@ class PageSpider(scrapy.Spider):
             parse_result = urlparse(link)
             query_tuple = parse_qsl(parse_result[4])
             datum = {}
-
+            # 键值对 映射
             for t in query_tuple:
                 if t[0] in PatentItem.KEYS:
                     datum[t[0]] = t[1]
@@ -168,6 +155,60 @@ class PageSpider(scrapy.Spider):
         }
         return scrapy.Request(url=url, callback=self.parse, meta=meta, dont_filter=True)
 
+    def _beyond_bounds(self, total_count):
+        """判断是否超过界限，是的话则返回request"""
+        if total_count > 6000:
+            if self.redis.total_count == -1:
+                self.redis.set_total_count('total_count')
+            if self.redis.is_using_date():
+                self.redis.set_days(self.redis.days // 2)
+            else:
+                self.redis.set_days(self.redis.days)
+            self.logger.warning('页面数据%d个，尝试改为%d天爬取' % (total_count, self.redis.days))
+            self.redis.set_date(self.redis.date)
+            self._cookie_dirty = True
+            return self.create_request(self.redis.cur_page)
+
+    def _pop_new_request(self):
+        """查看redis队列中是否有分类号，有则返回请求"""
+        self._cookie_dirty = True
+        self.redis.del_process()
+        main_cls_number = self.redis.pop_main_cls_number()
+        if main_cls_number:
+            self.redis.set_main_cls_number(main_cls_number)
+            self.redis.initialize()
+            return self.create_request(self.redis.cur_page)
+
+    def _crawl_page_done(self, total_count, item):
+        """爬取页面完成后的操作"""
+        old_count = self.redis.cur_count
+        # 更新值
+        self.redis.inc_index()
+        self.redis.add_cur_count(count=len(item['array']))
+        self.logger.info('爬取%s: 第%d页%d条，当前共%d条' % (self.redis.main_cls_number,
+                                                   self.redis.cur_page, len(item['array']), self.redis.cur_count))
+        self.redis.inc_page()
+        # 使用到了天数且爬取完成
+        is_next = self.redis.cur_count < total_count
+        if not is_next and self.redis.is_using_date():
+            is_next = True
+            self._cookie_dirty = True
+            self.redis.set_cur_page(1)
+            self.redis.set_cur_count(0)
+            # 年份处理
+            old_year = self.redis.date.year
+            self.redis.date = self.redis.date + timedelta(days=self.redis.days)
+            # 超出年份, 切换到下一年
+            if self.redis.date.year != old_year:
+                self.redis.date = datetime(old_year - 1, 1, 1)
+                self.redis.set_days(366)
+            self.redis.set_date(self.redis.date)
+            self.logger.info('爬取从%s开始' % date2str(self.redis.date))
+        # 页面爬取完成但未发现数据，计数
+        self.equal_count = 0 if old_count != self.redis.cur_count else self.equal_count + 1
+        # is_next 表示继续爬取页面 equal_count 表示连续数次以上item个数未发生变化
+        return is_next and self.equal_count < 4
+
     def _get_page_number(self, num_str):
         # 正则提取，并转换成整型
         pager = re.search(self.pattern, num_str)
@@ -187,3 +228,15 @@ class PageSpider(scrapy.Spider):
     def days(self):
         return self.redis.days
 
+    @property
+    def cookie(self):
+        return self._cookie
+
+    @cookie.setter
+    def cookie(self, cookie):
+        self._cookie = cookie
+        self._cookie_dirty = False
+
+    @property
+    def cookie_dirty(self):
+        return self._cookie_dirty

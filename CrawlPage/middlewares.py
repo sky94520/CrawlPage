@@ -63,7 +63,6 @@ class CookieMiddleware(object):
                 cookie = self.get_cookie(cls_number=spider.main_cls_number, **params)
                 logger.warning('获取cookie %s' % cookie)
             spider.cookie = cookie
-            spider.cookie_dirty = False
         # 赋值cookie
         request.headers['Cookie'] = spider.cookie
 

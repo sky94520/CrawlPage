@@ -9,11 +9,11 @@ class RedisClient(object):
         self.redis = redis.StrictRedis(**kwargs, decode_responses=True)
         # 不存在process
         if not self.redis.exists('process'):
-            self.main_cls_number = None
+            self.cls_number = None
             self.initialize()
         else:
             arr = self.redis.hmget('process', ['cls_number', 'cur_page', 'total_count', 'cur_count', 'index'])
-            self.main_cls_number, self.cur_page = arr[0], int(arr[1])
+            self.cls_number, self.cur_page = arr[0], int(arr[1])
             self.total_count, self.cur_count, self.index = int(arr[2]), int(arr[3]), int(arr[4])
             if self.redis.hexists('process', 'date'):
                 self.date = str2date(self.redis.hget('process', 'date'))
@@ -66,12 +66,21 @@ class RedisClient(object):
         # 是否启用日期
         return self.redis.hexists('process', 'date')
 
-    def get_main_cls_number(self):
+    @property
+    def main_cls_number(self):
         return self.redis.hget('process', 'cls_number')
 
+    @main_cls_number.setter
     def set_main_cls_number(self, cls_number):
-        self.main_cls_number = cls_number
+        self.cls_number = cls_number
         self.redis.hset('process', 'cls_number', cls_number)
 
     def del_process(self):
         self.redis.delete('process')
+
+    def pop_main_cls_number(self):
+        # 不存在键或者尺寸为0
+        if not self.redis.exists('queue') or self.redis.llen('queue') == 0:
+            return
+        main_cls_number = self.redis.lpop('queue')
+        return main_cls_number
