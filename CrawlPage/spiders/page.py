@@ -72,6 +72,8 @@ class PageSpider(scrapy.Spider):
             return
         # 超过阈值 缩小范围
         total_count = result['total_count']
+        if self.redis.total_count == -1:
+            self.redis.set_total_count(total_count)
         request = self._beyond_bounds(total_count)
         if request:
             yield request; return
@@ -160,8 +162,6 @@ class PageSpider(scrapy.Spider):
     def _beyond_bounds(self, total_count):
         """判断是否超过界限，是的话则返回request"""
         if total_count > 6000:
-            if self.redis.total_count == -1:
-                self.redis.set_total_count('total_count')
             if self.redis.is_using_date():
                 self.redis.set_days(self.redis.days // 2)
             else:
