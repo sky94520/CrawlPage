@@ -26,9 +26,9 @@ class PageSpider(scrapy.Spider):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # main_cls_number
-        SCRAPY_ENV = os.getenv('SCRAPY_ENV', 'development')
-        REDIS_CONFIG['db'] = 4 if SCRAPY_ENV == 'development' else 3
+        # 使用redis哪个db
+        REDIS_DB = int(os.getenv('REDIS_DB', 4))
+        REDIS_CONFIG['db'] = REDIS_DB
         self.redis = RedisClient(**REDIS_CONFIG)
         # 数字正则提取
         self.pattern = r'\d+(\,\d+)*'
@@ -39,14 +39,13 @@ class PageSpider(scrapy.Spider):
     def start_requests(self):
         # 存在断点
         if self.redis.hexists('cls_number'):
-            main_cls_number = self.redis.main_cls_number
+            request = self._create_request()
+        # 不存在则尝试获取新的请求
         else:
-            main_cls_number = self.redis.pop_main_cls_number()
-            self.redis.set_main_cls_number(main_cls_number)
-            self.redis.initialize()
+            request = self._pop_new_request()
         # 判断具体的个数
-        self.logger.info('开始爬取%s' % main_cls_number)
-        yield self.create_request()
+        self.logger.info('开始爬取%s' % self.main_cls_number)
+        yield request
 
     def parse(self, response):
         """
@@ -54,38 +53,36 @@ class PageSpider(scrapy.Spider):
         :param response:
         :return:
         """
+        self.logger.info('正在爬取%s: 第%d页' % (self.redis.main_cls_number, self.redis.cur_page))
         try:
-            self.logger.info('正在爬取%s: 第%d页' % (self.redis.main_cls_number, self.redis.cur_page))
             result = self.parse_page(response)
-            # 返回None表示此类爬取完成 尝试开启新的请求并爬取
-            if result is None:
-                request = self._pop_new_request()
-                if request:
-                    yield request
-                return
-            # 超过阈值 缩小范围
-            total_count = result['total_count']
-            request = self._beyond_bounds(total_count)
-            if request:
-                yield request
-                return
-            # 返回items
-            item = result['item']
-            yield item
-            # 这一页爬取完成
-            is_next = self._crawl_page_done(total_count, item)
-            # 存在下一页 或下一个年份
-            if is_next:
-                yield self.create_request(self.redis.cur_page)
-            else:
-                request = self._pop_new_request()
-                if request:
-                    yield request
         # 出现验证码 重新请求
-        except Exception as e:
+        except IdentifyingCodeError as e:
             self.logger.error(e)
             self._cookie_dirty = True
-            yield response.request
+            yield response.request; return
+        # 返回None表示此类爬取完成 尝试开启新的请求并爬取
+        if result is None:
+            request = self._pop_new_request()
+            if request:
+                yield request
+            return
+        # 超过阈值 缩小范围
+        total_count = result['total_count']
+        request = self._beyond_bounds(total_count)
+        if request:
+            yield request; return
+        # 返回items
+        item = result['item']
+        yield item
+        # 这一页爬取完成
+        is_next = self._crawl_page_done(total_count, item)
+        # 存在下一页 或下一个年份
+        if is_next:
+            yield self._create_request(self.redis.cur_page)
+        # 尝试创建新的请求
+        else:
+            yield self._pop_new_request()
 
     def parse_page(self, response):
         """
@@ -127,7 +124,7 @@ class PageSpider(scrapy.Spider):
             'item': item
         }
 
-    def create_request(self, cur_page=1):
+    def _create_request(self, cur_page=1):
         """
         创建一个专利页面的请求
         :param cur_page: 要获取的页面
@@ -167,7 +164,7 @@ class PageSpider(scrapy.Spider):
             self.logger.warning('页面数据%d个，尝试改为%d天爬取' % (total_count, self.redis.days))
             self.redis.set_date(self.redis.date)
             self._cookie_dirty = True
-            return self.create_request(self.redis.cur_page)
+            return self._create_request(self.redis.cur_page)
 
     def _pop_new_request(self):
         """查看redis队列中是否有分类号，有则返回请求"""
@@ -177,7 +174,7 @@ class PageSpider(scrapy.Spider):
         if main_cls_number:
             self.redis.set_main_cls_number(main_cls_number)
             self.redis.initialize()
-            return self.create_request(self.redis.cur_page)
+            return self._create_request(self.redis.cur_page)
 
     def _crawl_page_done(self, total_count, item):
         """爬取页面完成后的操作"""
