@@ -34,7 +34,6 @@ class PageSpider(scrapy.Spider):
         self.pattern = r'\d+(\,\d+)*'
         # cookie
         self._cookie_dirty, self._cookie = True, None
-        self.equal_count = 0
 
     def start_requests(self):
         # 存在断点
@@ -63,12 +62,9 @@ class PageSpider(scrapy.Spider):
             self._cookie_dirty = True
             yield self._create_request(self.redis.cur_page)
             return
-            # yield response.request; return
         # 返回None表示此类爬取完成 尝试开启新的请求并爬取
-        if result is None:
-            request = self._pop_new_request()
-            if request:
-                yield request
+        if result is None and self.redis.having_cls_number_in_queue():
+            yield self._pop_new_request()
             return
         # 超过阈值 缩小范围
         total_count = result['total_count']
@@ -78,18 +74,16 @@ class PageSpider(scrapy.Spider):
         if request:
             yield request; return
         # 返回items
-        item = result['item']
-        yield item
+        yield result['item']
         # 这一页爬取完成
-        is_next = self._crawl_page_done(total_count, item)
-        # 存在下一页 或下一个年份
+        is_next = self._crawl_page_done(total_count, result['item'])
+        # 继续爬取
         if is_next:
             yield self._create_request(self.redis.cur_page)
         # 尝试创建新的请求
-        else:
-            request = self._pop_new_request()
-            if request:
-                yield request
+        elif self.redis.having_cls_number_in_queue():
+            yield self._pop_new_request()
+            return
 
     def parse_page(self, response):
         """
@@ -183,7 +177,6 @@ class PageSpider(scrapy.Spider):
 
     def _crawl_page_done(self, total_count, item):
         """爬取页面完成后的操作"""
-        old_count = self.redis.cur_count
         # 更新值
         self.redis.inc_index()
         self.redis.add_cur_count(count=len(item['array']))
@@ -199,17 +192,20 @@ class PageSpider(scrapy.Spider):
             self.redis.set_cur_count(0)
             # 年份处理
             old_year = self.redis.date.year
-            self.redis.date = self.redis.date + timedelta(days=self.redis.days)
+            date = self.redis.date + timedelta(days=self.redis.days)
             # 超出年份, 切换到下一年
-            if self.redis.date.year != old_year:
-                self.redis.date = datetime(old_year - 1, 1, 1)
-                self.redis.set_days(366)
-            self.redis.set_date(self.redis.date)
+            if date.year != old_year:
+                # 最低年限，超出这个年限则不再进行爬取
+                BOUND_YEAR = os.getenv('BOUND_YEAR', 1989)
+                if BOUND_YEAR > old_year - 1:
+                    is_next = False
+                else:
+                    date = datetime(old_year - 1, 1, 1)
+                    self.redis.set_days(366)
+            self.redis.set_date(date)
             self.logger.info('爬取从%s开始' % date2str(self.redis.date))
-        # 页面爬取完成但未发现数据，计数
-        self.equal_count = 0 if old_count != self.redis.cur_count else self.equal_count + 1
-        # is_next 表示继续爬取页面 equal_count 表示连续数次以上item个数未发生变化
-        return is_next and self.equal_count < 4
+        # 是否继续爬取页面
+        return is_next
 
     def _get_page_number(self, num_str):
         # 正则提取，并转换成整型

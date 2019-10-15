@@ -84,3 +84,8 @@ class RedisClient(object):
             return
         main_cls_number = self.redis.lpop('queue')
         return main_cls_number
+
+    def having_cls_number_in_queue(self):
+        """检测队列中是否有主分类号"""
+        return self.redis.exists('queue') and self.redis.llen('queue') != 0
+
