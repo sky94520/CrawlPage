@@ -5,23 +5,28 @@ from CrawlPage.utils import date2str, str2date
 
 class RedisClient(object):
 
-    def __init__(self, cls_number, **kwargs):
+    def __init__(self, **kwargs):
         self.redis = redis.StrictRedis(**kwargs, decode_responses=True)
         # 不存在process
         if not self.redis.exists('process'):
-            self.cur_page, self.index = 1, 1
-            self.cur_count, self.total_count, = 0, -1
-            self.date, self.days = datetime(datetime.now().year, 1, 1), 366
-
-            self.redis.hmset('process', {'cls_number': cls_number, 'cur_page': self.cur_page,
-                                         'total_count': self.total_count,
-                                         'cur_count': self.cur_count, 'index': self.index})
+            self.main_cls_number = None
+            self.initialize()
         else:
-            arr = self.redis.hmget('process', ['cur_page', 'total_count', 'cur_count', 'index'])
-            self.cur_page, self.total_count, self.cur_count, self.index = int(arr[0]), int(arr[1]), int(arr[2]), int(arr[3])
+            arr = self.redis.hmget('process', ['cls_number', 'cur_page', 'total_count', 'cur_count', 'index'])
+            self.main_cls_number, self.cur_page = arr[0], int(arr[1])
+            self.total_count, self.cur_count, self.index = int(arr[2]), int(arr[3]), int(arr[4])
             if self.redis.hexists('process', 'date'):
                 self.date = str2date(self.redis.hget('process', 'date'))
                 self.days = int(self.redis.hget('process', 'days'))
+
+    def initialize(self):
+        self.cur_page, self.index = 1, 1
+        self.cur_count, self.total_count, = 0, -1
+        self.date, self.days = datetime(datetime.now().year, 1, 1), 366
+
+        self.redis.hmset('process', {'cur_page': self.cur_page,
+                                     'total_count': self.total_count,
+                                     'cur_count': self.cur_count, 'index': self.index})
 
     def set_days(self, days):
         self.redis.hset('process', 'days', days)
@@ -60,3 +65,13 @@ class RedisClient(object):
     def is_using_date(self):
         # 是否启用日期
         return self.redis.hexists('process', 'date')
+
+    def get_main_cls_number(self):
+        return self.redis.hget('process', 'cls_number')
+
+    def set_main_cls_number(self, cls_number):
+        self.main_cls_number = cls_number
+        self.redis.hset('process', 'cls_number', cls_number)
+
+    def del_process(self):
+        self.redis.delete('process')

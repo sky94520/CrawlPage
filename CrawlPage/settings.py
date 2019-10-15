@@ -62,6 +62,6 @@ ITEM_PIPELINES = {
 
 # 禁止重定向
 REDIRECT_ENALBED = False
-
 # 允许出现404
 HTTPERROR_ALLOWED_CODES = [404]
+COMMANDS_MODULE = 'CrawlPage.commands'

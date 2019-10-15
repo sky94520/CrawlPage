@@ -56,7 +56,7 @@ class CookieMiddleware(object):
             params = {}
             # 添加年份
             if spider.redis.is_using_date():
-                params = self._get_year_bound(spider.redis.date, spider.redis.days)
+                params = self._get_year_bound(spider.date, spider.days)
             # 死循环获取cookie
             cookie = None
             while not cookie:
@@ -70,6 +70,7 @@ class CookieMiddleware(object):
     def get_cookie(self, cls_number, code='*', proxies=None, **kwargs):
         """
         根据条件给知网发送post请求来获取对应的cookie
+        :param cls_number: 主分类号
         :param code: 条件，知网会根据条件来进行搜索
         :param proxies: 代理 proxies = {'http': 'host:port', 'https': 'host:port'}
         :return: cookie 字符串类型，主要用于赋值到header中的Cookie键

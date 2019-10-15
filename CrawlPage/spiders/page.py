@@ -23,14 +23,10 @@ class IdentifyingCodeError(Exception):
 class PageSpider(scrapy.Spider):
     name = 'page'
 
-    def __init__(self, **kwargs):
+    def __init__(self, redis, **kwargs):
         super().__init__(**kwargs)
         # main_cls_number H04N1/62
-        self.main_cls_number = 'A47J27/00'
-        # 测试环境下使用数据库4
-        SCRAPY_ENV = os.getenv('SCRAPY_ENV', 'development')
-        REDIS_CONFIG['db'] = 4 if SCRAPY_ENV == 'development' else 3
-        self.redis = RedisClient(self.main_cls_number, **REDIS_CONFIG)
+        self.redis = redis
         # 数字正则提取
         self.pattern = r'\d+(\,\d+)*'
         # cookie
@@ -48,7 +44,7 @@ class PageSpider(scrapy.Spider):
         :return:
         """
         try:
-            self.logger.info('正在爬取%s: 第%d页' % (self.main_cls_number, self.redis.cur_page))
+            self.logger.info('正在爬取%s: 第%d页' % (self.redis.main_cls_number, self.redis.cur_page))
             result = self.parse_page(response)
             if result is None:
                 return
@@ -75,7 +71,7 @@ class PageSpider(scrapy.Spider):
             self.redis.inc_index()
             self.redis.add_cur_count(count=len(item['array']))
             self.logger.info('爬取%s: 第%d页%d条，当前共%d条' %
-                             (self.main_cls_number, self.redis.cur_page, len(item['array']), self.redis.cur_count))
+                             (self.redis.main_cls_number, self.redis.cur_page, len(item['array']), self.redis.cur_count))
             self.redis.inc_page()
             # 使用到了天数且爬取完成
             is_next = self.redis.cur_count < result['total_count']
@@ -113,7 +109,7 @@ class PageSpider(scrapy.Spider):
         pager = response.xpath("//div[@class='pagerTitleCell']//text()").extract_first(None)
         # 爬取页面结构失败，则报错
         if pager is None:
-            raise IdentifyingCodeError('%s出现验证码' % self.main_cls_number)
+            raise IdentifyingCodeError('%s出现验证码' % self.redis.main_cls_number)
         # TODO:判断个数有没有超过阈值 目前为6000 超过则更改日期，重新请求
         total_count = self._get_page_number(pager)
         # 专利条目数组
@@ -178,4 +174,16 @@ class PageSpider(scrapy.Spider):
         pager = re.sub(',', '', pager.group(0))
         total_count = int(pager)
         return total_count
+
+    @property
+    def main_cls_number(self):
+        return self.redis.main_cls_number
+
+    @property
+    def date(self):
+        return self.redis.date
+
+    @property
+    def days(self):
+        return self.redis.days
 
