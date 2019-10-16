@@ -27,7 +27,7 @@ class PageSpider(scrapy.Spider):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # 使用redis哪个db
-        REDIS_DB = int(os.getenv('REDIS_DB', 4))
+        REDIS_DB = int(os.getenv('REDIS_DB', 5))
         REDIS_CONFIG['db'] = REDIS_DB
         self.redis = RedisClient(**REDIS_CONFIG)
         # 数字正则提取
@@ -132,18 +132,17 @@ class PageSpider(scrapy.Spider):
         :return: request
         """
         params = {
+            'isinEn': 0,
+            'dbPrefix': 'SCPD_SQ',
             'ID': '',
             'tpagemode': 'L',
-            'dbPrefix': 'SCPD',
             'Fields': '',
             'DisplayMode': 'listmode',
-            'PageName': 'ASP.brief_result_aspx',
-            'isinEn': 0,
             'QueryID': 3,
-            'sKuaKuID': 3,
             'turnpage': 1,
             'RecordsPerPage': self.settings.get('PATENT_NUMBER_PER_PAGE', 50),
             'curpage': cur_page,
+            'PageName': 'ASP.brief_result_aspx',
         }
         base_url = 'http://kns.cnki.net/KNS/brief/brief.aspx'
         url = '%s?%s' % (base_url, urlencode(params))

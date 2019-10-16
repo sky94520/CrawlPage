@@ -60,17 +60,16 @@ class CookieMiddleware(object):
             # 死循环获取cookie
             cookie = None
             while not cookie:
-                cookie = self.get_cookie(cls_number=spider.main_cls_number, **params)
+                cookie = self.get_cookie(spider.main_cls_number, **params)
                 logger.warning('获取cookie %s' % cookie)
             spider.cookie = cookie
         # 赋值cookie
         request.headers['Cookie'] = spider.cookie
 
-    def get_cookie(self, cls_number, code='*', proxies=None, **kwargs):
+    def get_cookie(self, code='A', proxies=None, **kwargs):
         """
         根据条件给知网发送post请求来获取对应的cookie
-        :param cls_number: 主分类号
-        :param code: 条件，知网会根据条件来进行搜索
+        :param code: 条件，知网会根据条件来进行搜索 在这里是IPC分类号
         :param proxies: 代理 proxies = {'http': 'host:port', 'https': 'host:port'}
         :return: cookie 字符串类型，主要用于赋值到header中的Cookie键
         headers = {'Cookie': cookie}
@@ -78,18 +77,14 @@ class CookieMiddleware(object):
         params = {
             "action": "",
             "NaviCode": code,
-            "ua": "1.21",
+            "ua": "1.25",
             "isinEn": "0",
             "PageName": "ASP.brief_result_aspx",
-            "DbPrefix": "SCPD",
-            "DbCatalog": "中国专利数据库",
-            "ConfigFile": "SCPD.xml",
+            "DbPrefix": "SCPD_SQ",
+            "DbCatalog": "中国专利数据库_发明授权",
+            "ConfigFile": "SCPD_SQ.xml",
             "db_opt": "SCOD",
-            "db_value": "中国专利数据库",
-            "txt_1_sel": "CLZ$=|?",
-            "txt_1_value1": cls_number,
-            "txt_1_relation": "#CNKI_AND",
-            "txt_1_special1": "=",
+            "db_value": "中国专利数据库_发明授权",
             "his": 0,
             "__": self._get_now_gmt_time()
         }
