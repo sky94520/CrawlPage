@@ -29,6 +29,7 @@ class RedisClient(object):
                                      'cur_count': self.cur_count, 'index': self.index})
 
     def set_days(self, days):
+        self.days = days
         self.redis.hset('process', 'days', days)
 
     def set_date(self, date):
