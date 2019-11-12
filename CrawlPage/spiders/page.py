@@ -109,6 +109,7 @@ class PageSpider(scrapy.Spider):
         # 解析条目 去掉头
         for index in range(1, length):
             tr = tr_list[index]
+            # 链接
             link = tr.xpath('./td[2]/a/@href').extract_first()
             parse_result = urlparse(link)
             query_tuple = parse_qsl(parse_result[4])
@@ -117,7 +118,13 @@ class PageSpider(scrapy.Spider):
             for t in query_tuple:
                 if t[0] in PatentItem.KEYS:
                     datum[t[0]] = t[1]
+            # TODO: 外部扩展
             datum['title'] = tr.xpath('./td[2]/a/text()').extract_first()
+            datum['inventor'] = tr.xpath('./td[3]/text()').extract_first()
+            datum['applicants'] = tr.xpath('./td[4]//text()').extract_first()
+            datum['application_number'] = tr.xpath('./td[5]/text()').extract_first()
+            datum['publication_number'] = tr.xpath('./td[6]/text()').extract_first()
+
             item['array'].append(datum)
 
         return {

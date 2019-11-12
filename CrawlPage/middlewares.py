@@ -86,7 +86,7 @@ class CookieMiddleware(object):
             "ConfigFile": "SCPD.xml",
             "db_opt": "SCOD",
             "db_value": "中国专利数据库",
-            "txt_1_sel": "CLZ$=|?",
+            "txt_1_sel": "SQR",
             "txt_1_value1": cls_number,
             "txt_1_relation": "#CNKI_AND",
             "txt_1_special1": "=",
