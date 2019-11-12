@@ -3,19 +3,15 @@
 """
 import os
 from dotenv import load_dotenv
+import xlrd
 
 from CrawlPage.config import MONGO_CONFIG, REDIS_CONFIG
 from CrawlPage.utils import MongoDB
 from CrawlPage.RedisClient import RedisClient
 
-if __name__ == '__main__':
-    # 加载.env配置文件
-    load_dotenv()
-    # 初始化redis
-    REDIS_DB = int(os.getenv('REDIS_DB', 4))
+
+def write_from_mongo(redis):
     CLS_PATTERN = os.getenv('CLS_PATTERN', 'A.{4,}')
-    REDIS_CONFIG['db'] = REDIS_DB
-    redis = RedisClient(**REDIS_CONFIG)
     # 初始化mongo
     mongo = MongoDB(host=MONGO_CONFIG['ip'], port=MONGO_CONFIG['port'])
     mongo.authenticate(db_name=MONGO_CONFIG['database'], name=MONGO_CONFIG['username'],
@@ -29,3 +25,31 @@ if __name__ == '__main__':
     # 写入
     redis.redis.rpush('queue', *cls_number_list)
     print('写入成功%d' % len(cls_number_list))
+
+
+def write_from_xlsx(redis):
+    filename = '1.xlsx'
+    data = xlrd.open_workbook(filename)
+    table = data.sheet_by_name('Sheet2')
+    # 获取总行数
+    rows = table.nrows
+    col_values = table.col_values(2)
+    col_values = col_values[2:]
+    print(col_values[2:])
+    redis.redis.rpush('queue', *col_values)
+    print('写入成功%d' % len(col_values))
+
+
+def main():
+    # 初始化redis
+    REDIS_DB = int(os.getenv('REDIS_DB', 4))
+    REDIS_CONFIG['db'] = REDIS_DB
+    redis = RedisClient(**REDIS_CONFIG)
+
+    write_from_xlsx(redis)
+
+
+if __name__ == '__main__':
+    # 加载.env配置文件
+    load_dotenv()
+    main()
