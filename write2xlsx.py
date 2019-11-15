@@ -35,8 +35,18 @@ def main():
 
             data.extend(json_data)
         # 筛选并排序
-        data = list(filter(lambda x: 2017 <= x['date'].tm_year <= 2018, data))
+        data = list(filter(lambda x: 2015 <= x['date'].tm_year <= 2019, data))
         data.sort(key=operator.itemgetter('date'), reverse=True)
+        # 按照公开号分为发明专利和 实用新型、外观专利
+        mapping = {}
+        for datum in data:
+            publication_number = datum['filename']
+            number = publication_number[2]
+            if number == '3':
+                number = '2'
+            if number not in mapping:
+                mapping[number] = []
+            mapping[number].append(datum)
         # 写入到文件
         real_path = os.path.join(csv_path, '%s.xlsx' % company)
 
@@ -49,17 +59,20 @@ def main():
             sheet.cell(i, j + 1).value = keys[j]
         i += 1
         max_widths = {}
-        for datum in data:
-            for j in range(len(fieldnames)):
-                value = datum[fieldnames[j]]
-                sheet.cell(i, j + 1).value = value
-                # 确定行的最大值
-                max_widths[j + 1] = max(max_widths.get(j + 1, 0), len(value))
+        for number, data in mapping.items():
+            sheet.cell(i, 1).value = '本分类个数%d' % len(data)
             i += 1
-        for k, width in max_widths.items():
-            col_letter = get_column_letter(k)
-            sheet.column_dimensions[col_letter].width = width * 1.2
-        work_book.save(real_path)
+            for datum in data:
+                for j in range(len(fieldnames)):
+                    value = datum[fieldnames[j]]
+                    sheet.cell(i, j + 1).value = value
+                    # 确定行的最大值
+                    max_widths[j + 1] = max(max_widths.get(j + 1, 0), len(value))
+                i += 1
+            for k, width in max_widths.items():
+                col_letter = get_column_letter(k)
+                sheet.column_dimensions[col_letter].width = width * 1.2
+            work_book.save(real_path)
 
         print('%s 写入成功' % company)
 

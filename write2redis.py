@@ -28,14 +28,13 @@ def write_from_mongo(redis):
 
 
 def write_from_xlsx(redis):
-    filename = '1.xlsx'
+    filename = '2.xlsx'
     data = xlrd.open_workbook(filename)
     table = data.sheet_by_name('Sheet2')
     # 获取总行数
     rows = table.nrows
-    col_values = table.col_values(2)
-    col_values = col_values[2:]
-    print(col_values[2:])
+    col_values = table.col_values(0)
+    print(col_values)
     redis.redis.rpush('queue', *col_values)
     print('写入成功%d' % len(col_values))
 
