@@ -4,6 +4,7 @@
 import os
 from dotenv import load_dotenv
 import xlrd
+import csv
 
 from CrawlPage.config import MONGO_CONFIG, REDIS_CONFIG
 from CrawlPage.utils import MongoDB
@@ -39,13 +40,25 @@ def write_from_xlsx(redis):
     print('写入成功%d' % len(col_values))
 
 
+def write_from_csv(redis):
+    filename = 'result.csv'
+    fp = open(filename, 'r', encoding='utf-8')
+    reader = csv.reader(fp)
+    array = []
+    for line in reader:
+        array.append(line[-1])
+    print(array)
+    redis.redis.rpush('queue', *array)
+    print('写入成功%d' % len(array))
+
+
 def main():
     # 初始化redis
     REDIS_DB = int(os.getenv('REDIS_DB', 4))
     REDIS_CONFIG['db'] = REDIS_DB
     redis = RedisClient(**REDIS_CONFIG)
 
-    write_from_xlsx(redis)
+    write_from_csv(redis)
 
 
 if __name__ == '__main__':
