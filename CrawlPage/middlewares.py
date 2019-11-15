@@ -4,12 +4,13 @@
 #
 # See documentation in:
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
+import os
 import logging
 import requests
-from datetime import timedelta, datetime
 from scrapy.downloadermiddlewares.retry import RetryMiddleware
 import proxy_pool
 from CrawlPage.utils import date2str
+from .hownet_config import *
 
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,11 @@ class ProxyMiddleware(object):
 
 class CookieMiddleware(object):
 
+    def __init__(self):
+        # 使用那个类作为配置文件
+        name = os.getenv('config', 'ApplicantConfig')
+        self.config = configurations[name]
+
     def process_request(self, request, spider):
         # 重新请求cookie
         if spider.cookie_dirty:
@@ -60,39 +66,21 @@ class CookieMiddleware(object):
             # 死循环获取cookie
             cookie = None
             while not cookie:
-                cookie = self.get_cookie(cls_number=spider.main_cls_number, **params)
+                cookie = self.get_cookie(spider.variable, **params)
                 logger.warning('获取cookie %s' % cookie)
             spider.cookie = cookie
         # 赋值cookie
         request.headers['Cookie'] = spider.cookie
 
-    def get_cookie(self, cls_number, code='*', proxies=None, **kwargs):
+    def get_cookie(self, value, proxies=None, **kwargs):
         """
         根据条件给知网发送post请求来获取对应的cookie
-        :param cls_number: 主分类号
-        :param code: 条件，知网会根据条件来进行搜索
+        :param value: 目前仅仅可以是单变量
         :param proxies: 代理 proxies = {'http': 'host:port', 'https': 'host:port'}
         :return: cookie 字符串类型，主要用于赋值到header中的Cookie键
         headers = {'Cookie': cookie}
         """
-        params = {
-            "action": "",
-            "NaviCode": code,
-            "ua": "1.21",
-            "isinEn": "0",
-            "PageName": "ASP.brief_result_aspx",
-            "DbPrefix": "SCPD",
-            "DbCatalog": "中国专利数据库",
-            "ConfigFile": "SCPD.xml",
-            "db_opt": "SCOD",
-            "db_value": "中国专利数据库",
-            "txt_1_sel": "SQR",
-            "txt_1_value1": cls_number,
-            "txt_1_relation": "#CNKI_AND",
-            "txt_1_special1": "=",
-            "his": 0,
-            "__": self._get_now_gmt_time()
-        }
+        params = self.config.get_params(value)
         params.update(**kwargs)
         url = 'http://kns.cnki.net/kns/request/SearchHandler.ashx'
         try:
@@ -109,17 +97,6 @@ class CookieMiddleware(object):
         except Exception as e:
             print(e)
         return None
-
-    def _get_now_gmt_time(self):
-        """
-        获取当前的中国标准时间，主要用于赋值给form data
-        :return: 当前的时间字符串
-        """
-        GMT_FORMAT = '%a %b %d %Y %H:%M:%S GMT+0800'
-        now = datetime.utcnow() + timedelta(hours=8)
-        text = '%s (中国标准时间)' % now.strftime(GMT_FORMAT)
-
-        return text
 
     def _get_year_bound(self, date, days):
         params = {}

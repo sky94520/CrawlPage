@@ -79,14 +79,14 @@ class RedisClient(object):
     def del_process(self):
         self.redis.delete('process')
 
-    def pop_main_cls_number(self):
+    def pop_from_queue(self):
         # 不存在键或者尺寸为0
         if not self.redis.exists('queue') or self.redis.llen('queue') == 0:
             return
         main_cls_number = self.redis.lpop('queue')
         return main_cls_number
 
-    def having_cls_number_in_queue(self):
+    def is_empty_in_queue(self):
         """检测队列中是否有主分类号"""
-        return self.redis.exists('queue') and self.redis.llen('queue') != 0
+        return not self.redis.exists('queue') or self.redis.llen('queue') == 0
 

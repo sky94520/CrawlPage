@@ -43,7 +43,7 @@ class PageSpider(scrapy.Spider):
         else:
             request = self._pop_new_request()
         # 判断具体的个数
-        self.logger.info('开始爬取%s' % self.main_cls_number)
+        self.logger.info('开始爬取%s' % self.variable)
         if request:
             yield request
 
@@ -63,7 +63,7 @@ class PageSpider(scrapy.Spider):
             yield self._create_request(self.redis.cur_page)
             return
         # 返回None表示此类爬取完成 尝试开启新的请求并爬取
-        if result is None and self.redis.having_cls_number_in_queue():
+        if result is None and not self.redis.is_empty_in_queue():
             yield self._pop_new_request()
             return
         # 超过阈值 缩小范围
@@ -72,7 +72,8 @@ class PageSpider(scrapy.Spider):
             self.redis.set_total_count(total_count)
         request = self._beyond_bounds(total_count)
         if request:
-            yield request; return
+            yield request
+            return
         # 返回items
         yield result['item']
         # 这一页爬取完成
@@ -81,7 +82,7 @@ class PageSpider(scrapy.Spider):
         if is_next:
             yield self._create_request(self.redis.cur_page)
         # 尝试创建新的请求
-        elif self.redis.having_cls_number_in_queue():
+        elif not self.redis.is_empty_in_queue():
             yield self._pop_new_request()
             return
 
@@ -176,9 +177,9 @@ class PageSpider(scrapy.Spider):
         """查看redis队列中是否有分类号，有则返回请求"""
         self._cookie_dirty = True
         self.redis.del_process()
-        main_cls_number = self.redis.pop_main_cls_number()
-        if main_cls_number:
-            self.redis.main_cls_number = main_cls_number
+        value = self.redis.pop_from_queue()
+        if value:
+            self.redis.main_cls_number = value
             self.redis.initialize()
             return self._create_request(self.redis.cur_page)
 
@@ -223,7 +224,7 @@ class PageSpider(scrapy.Spider):
         return total_count
 
     @property
-    def main_cls_number(self):
+    def variable(self):
         return self.redis.main_cls_number
 
     @property
