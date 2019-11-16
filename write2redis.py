@@ -44,9 +44,9 @@ def write_from_csv(redis):
     filename = 'result.csv'
     fp = open(filename, 'r', encoding='utf-8')
     reader = csv.reader(fp)
-    array = []
+    array = set()
     for line in reader:
-        array.append(line[-1])
+        array.add(line[-1])
     print(array)
     redis.redis.rpush('queue', *array)
     print('写入成功%d' % len(array))
