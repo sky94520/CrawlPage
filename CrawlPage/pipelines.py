@@ -11,8 +11,8 @@ import json
 
 def get_path(spider, path_name):
     basedir = spider.settings.get('BASEDIR')
-    main_cls_number = re.sub('/', '-', spider.main_cls_number)
-    path = os.path.join(basedir, 'files', path_name, main_cls_number)
+    variable = re.sub('/', '-', spider.variable)
+    path = os.path.join(basedir, 'files', path_name, variable)
 
     return path
 
