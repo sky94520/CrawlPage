@@ -66,7 +66,9 @@ class CookieMiddleware(object):
             # 死循环获取cookie
             cookie = None
             while not cookie:
-                cookie = self.get_cookie(spider.variable, **params)
+                proxy = proxy_pool.get_random_proxy()
+                proxies = {'http': proxy}
+                cookie = self.get_cookie(spider.variable, proxies, **params)
                 logger.warning('获取cookie %s' % cookie)
             spider.cookie = cookie
         # 赋值cookie
