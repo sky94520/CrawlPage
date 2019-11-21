@@ -54,7 +54,8 @@ def write_from_csv(redis):
 
 def main():
     # 初始化redis
-    REDIS_DB = int(os.getenv('REDIS_DB', 4))
+    # REDIS_DB = int(os.getenv('REDIS_DB', 4))
+    REDIS_DB = 5
     REDIS_CONFIG['db'] = REDIS_DB
     redis = RedisClient(**REDIS_CONFIG)
 
