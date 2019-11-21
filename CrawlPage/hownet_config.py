@@ -41,7 +41,7 @@ class ApplicantConfig(BaseConfig):
 
 
 class MainClsNumberConfig(BaseConfig):
-    """主分类号配置 txt_1_value1设置 仅仅发明授权"""
+    """主分类号配置 txt_1_value1设置 仅仅发明公开"""
     @staticmethod
     def get_params(main_cls_number):
         params = {
@@ -55,7 +55,7 @@ class MainClsNumberConfig(BaseConfig):
             "ConfigFile": "SCPD.xml",
             "db_opt": "SCOD",
             "db_value": "中国专利数据库",
-            "@thesislevel": "专利类别=4",
+            "@thesislevel": "专利类别=1",
             "txt_1_sel": "CLZ$=|?",
             "txt_1_value1": main_cls_number,
             "txt_1_relation": "#CNKI_AND",
