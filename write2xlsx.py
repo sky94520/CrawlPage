@@ -60,7 +60,8 @@ def main():
         i += 1
         max_widths = {}
         for number, data in mapping.items():
-            sheet.cell(i, 1).value = '本分类个数%d' % len(data)
+            type_name = '发明专利' if number == '1' else '其他专利'
+            sheet.cell(i, 1).value = '%s个数%d' % (type_name, len(data))
             i += 1
             for datum in data:
                 for j in range(len(fieldnames)):
